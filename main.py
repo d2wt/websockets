@@ -1,4 +1,3 @@
-from typing import cast
 from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
