@@ -37,7 +37,7 @@ def index():
 @app.route("/token", methods=["GET"])
 def tokenfunc():
 	if not (user_id := request.args.get("uid")):
-		return jsonify({"status": 400, "message": "\"uid\" not present."})
+		return jsonify({"status": 400, "message": "User ID not present."})
 
 	try:
 		decrypted = fernet.decrypt(user_id.encode()).decode()
