@@ -9,7 +9,7 @@ import sys
 load_dotenv()
 
 app = Flask(__name__)
-socketio = SocketIO(app)
+socketio = SocketIO(app, path="/ws")
 user_sessions = {}
 
 try:
