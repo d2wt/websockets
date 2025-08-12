@@ -61,8 +61,8 @@ def tokenfunc():
 	return jsonify({"status": 200, "token": token}), 200
 
 @socketio.on("connect")
-def handle_connect():
-	token = request.args.get("token")
+def handle_connect(auth):
+	token = auth.get("token")
 	if not token:
 		return False
 
