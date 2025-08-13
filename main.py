@@ -93,7 +93,7 @@ def callback():
 	except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
 		return jsonify({"status": 400, "message": "Malformed state. Please re-authenticate."}), 400 
 
-	sid = user_sessions[data["user_id"]]
+	sid = user_sessions.get(data["user_id"])
 	if not sid:
 		return jsonify({"status": 404, "message": "Session not found."}), 404 
 
