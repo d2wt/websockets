@@ -9,7 +9,7 @@ import sys
 load_dotenv()
 
 app = Flask(__name__)
-socketio = SocketIO(app, path="/ws")
+socketio = SocketIO(app, path="/ws", async_mode="eventlet", cors_allowed_origins="*")
 user_sessions = {}
 
 try:
