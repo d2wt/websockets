@@ -97,7 +97,7 @@ def callback():
 	if not sid:
 		return jsonify({"status": 404, "message": "Session not found."}), 404 
 
-	emit("callback", {"code": code, "user_id": data["user_id"]}, to=sid)
+	emit("callback", {"code": code, "user_id": data["user_id"]}, to=sid, namespace="/")
 	return render_template("./templates/authorized.html")
 
 if __name__ == "__main__":
