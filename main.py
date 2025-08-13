@@ -98,7 +98,7 @@ def callback():
 		return jsonify({"status": 404, "message": "Session not found."}), 404 
 
 	emit("callback", {"code": code, "user_id": data["user_id"]}, to=sid, namespace="/")
-	return render_template("./templates/authorized.html")
+	return render_template("authorized.html")
 
 if __name__ == "__main__":
 	socketio.run(app)
