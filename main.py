@@ -64,7 +64,7 @@ def uuid_func():
 	if (1420070400000 > data.user_id):
 		return jsonify({"status": 400, "message": "Invalid user ID."}), 400
 
-	gen = Uuid.uuid4()	
+	gen = str(Uuid.uuid4())	
 	uuid_store[gen] = data
 
 	return jsonify({"status": 200, "uuid": gen}), 200
@@ -98,13 +98,13 @@ def callback():
 	if not sid:
 		return jsonify({"status": 404, "message": "Session not found."}), 404 
 
-	data = uuid_store.get(uuid)
+	data: UUIDData | None = uuid_store.get(uuid)
 	if not data:
 		return jsonify({"status": 404, "message": "Malformed data."}), 404 
 
 	emit("callback", {"code": code}, to=sid, namespace="/")
-	session["data"] = data
-	return redirect(url_for("/authorized"))
+	session["data"] = data.model_dump(mode="json")
+	return redirect(url_for("authorized"))
 
 @app.route("/authorized", methods=["GET"])
 def authorized():
@@ -117,10 +117,10 @@ def authorized():
 
 	return render_template(
 		"authorized.html",
-		host_name=data.host_name,
-		user_name=data.user_name,
-		user_avatar_url=data.user_avatar_url,
-		host_icon_url=data.host_icon_url
+		host_name=data["host_name"],
+		user_name=data["user_name"],
+		user_avatar_url=data["user_avatar_url"],
+		host_icon_url=data["host_icon_url"]
 	)
 
 if __name__ == "__main__":
