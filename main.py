@@ -2,7 +2,7 @@ from flask import Flask, jsonify, redirect, render_template, request, url_for, s
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet, InvalidToken
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, model_validator
 import os
 import sys
 import uuid as Uuid
@@ -19,7 +19,20 @@ class UUIDData(BaseModel):
 	host_icon_url: str
 	user_name: str
 	user_avatar_url: str
-	user_id: str
+	user_id: int
+
+	@model_validator(mode="before")
+	@classmethod
+	def decrypt_fields(cls, data):
+		if isinstance(data, dict):
+			decrypted = {}
+			for k, v in data.items():
+				try:
+					decrypted[k] = fernet.decrypt(str(v))
+				except InvalidToken:
+					raise ValueError(f"Field '{k}' is not encrypted, or encryption is invalid")
+			return decrypted
+		return data
 
 try:
 	app.secret_key = os.environ["APP_SECRET"]
@@ -48,19 +61,9 @@ def uuid_func():
 		else:
 			return jsonify({"status": 400, "message": f"Malformed data."}), 400
 	
-	user_id = data.user_id
-	try:
-		decryped = fernet.decrypt(user_id)
-		user_id = int(decryped)
+	if (1420070400000 > data.user_id):
+		return jsonify({"status": 400, "message": "Invalid user ID."}), 400
 
-		if (1420070400000 > user_id):
-			return jsonify({"status": 400, "message": "Invalid user ID."}), 400
-	except (ValueError, TypeError, InvalidToken) as exc:
-		if isinstance(exc, InvalidToken):
-			return jsonify({"status": 401, "message": "Unauthorized."}), 401
-		else:
-			return jsonify({"status": 400, "message": "Malformed user ID."}), 400
-		
 	gen = Uuid.uuid4()	
 	uuid_store[gen] = data
 
