@@ -42,13 +42,15 @@
             background: linear-gradient(45deg, #e0e0e0, #f5f5f5, #e0e0e0);
             background-size: 200% 200%;
             animation: shimmer 1.5s ease-in-out infinite;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: block;
             font-size: 32px;
             color: #999;
             border: 3px solid #f0f0f0;
             position: relative;
+        }
+
+        .auth-image.loaded {
+            background: transparent;
         }
 
         .connection-line {
@@ -91,9 +93,9 @@
 <body>
     <div class="auth-box">
         <div class="auth-images">
-            <div class="auth-image"><img src="{{ user_avatar_url }}" onerror="this.style.display='none';" alt="{{ user_name }}'s avatar" /></div>
+            <img class="auth-image" src="{{ user_avatar_url }}" onerror="this.alt='';" alt="User's avatar" id="userAvatar" />
             <div class="connection-line"></div>
-            <div class="auth-image"><img src="{{ host_icon_url }}" onerror="this.style.display='none';" alt="{{ host_name }}'s logo"></div>
+            <img class="auth-image" src="{{ host_icon_url }}" onerror="this.alt='';" alt="Host logo" id="hostLogo" />
         </div>
         
         <div class="title">Authorized</div>
@@ -106,5 +108,31 @@
             You may close this window.
         </div>
     </div>
+
+    <script>
+        function handleImageLoad(imgElement, containerId) {
+            const container = document.getElementById(containerId);
+            
+            imgElement.addEventListener("load", function() {
+                if (this.naturalWidth > 0 && this.naturalHeight > 0) {
+                    container.classList.add("loaded");
+                }
+            });
+            
+            imgElement.addEventListener("error", function() {
+                container.classList.remove("loaded");
+            });
+            
+            if (imgElement.complete && imgElement.naturalWidth > 0) {
+                container.classList.add("loaded");
+            }
+        }
+        
+        const userImg = document.querySelector('#userAvatar');
+        const hostImg = document.querySelector('#hostLogo');
+        
+        handleImageLoad(userImg, "userAvatar");
+        handleImageLoad(hostImg, "hostLogo");
+    </script>
 </body>
 </html>
