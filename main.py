@@ -1,11 +1,12 @@
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, redirect, render_template, request, url_for, session
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet, InvalidToken
-from datetime import timedelta, datetime, timezone
-import jwt
+from pydantic import BaseModel, ValidationError
 import os
 import sys
+import uuid as Uuid
+import cachetools
 load_dotenv()
 
 app = Flask(__name__)
@@ -13,93 +14,94 @@ socketio = SocketIO(app, path="/ws", async_mode="eventlet", cors_allowed_origins
 uuid_store = cachetools.TTLCache(maxsize=128, ttl=30 * 60)
 user_sessions = {}
 
+class UUIDData(BaseModel):
+	host_name: str
+	host_icon_url: str
+	user_name: str
+	user_avatar_url: str
+	user_id: str
+
 try:
 	app.secret_key = os.environ["APP_SECRET"]
-except KeyError:
-	print("APP_SECRET not found. Exiting...")
-	sys.exit(0)
-
-try:
 	fernet = Fernet(os.environ["ID_ENC_KEY"])
-except KeyError:
-	print("ID_ENC_KEY not found. Exiting...")
-	sys.exit(0)
-
-try:
 	token_secret = os.environ["TOKEN_SECRET"]
 except KeyError:
-	print("TOKEN_SECRET not found. Exiting...")
+	print("APP_SECRET, ID_ENC_KEY or TOKEN_SECRET not found. Exiting...")
 	sys.exit(0)
 
 @app.route("/", endpoint="index")
 def index():
 	return "This is the D2WT API home page."
 
-@app.route("/token", methods=["GET"])
-def tokenfunc():
-	if not (user_id := request.args.get("uid")):
-		return jsonify({"status": 400, "message": "User ID not present."})
-
+@app.route("/uuid", methods=["POST"])
+def uuid_func():
 	try:
-		decrypted = fernet.decrypt(user_id.encode()).decode()
-	except InvalidToken:
-		return jsonify({"status": 401, "message": "Malformed token."}), 401
-
+		json = request.json
+		if not json:
+			return jsonify({"status": 400, "message": "No data presented."})
+		
+		data = UUIDData.model_validate(json)
+	except ValidationError as e:
+		not_found = [dt for dt in e.errors() if dt["type"] == "missing"]
+		if len(not_found) > 0:
+			return jsonify({"status": 400, "message": f"The following field(s) were not found: {", ".join([", ".join(str([i for i in dt["loc"]])) for dt in not_found])}"}), 400
+		else:
+			return jsonify({"status": 400, "message": f"Malformed data."}), 400
+	
+	user_id = data.user_id
 	try:
-		decrypted = int(decrypted)
-		if (1420070400000 > decrypted):
-			raise ValueError()
-	except (TypeError, ValueError):
-		return jsonify({"status": 400, "message": "Malformed user ID."}), 400
+		decryped = fernet.decrypt(user_id)
+		user_id = int(decryped)
 
-	now = datetime.now(timezone.utc)
-	token = jwt.encode({
-		"user_id": decrypted,
-		"exp": now + timedelta(minutes=30),
-		"iat": now
-	}, token_secret, algorithm="HS256")
+		if (1420070400000 > user_id):
+			return jsonify({"status": 400, "message": "Invalid user ID."}), 400
+	except (ValueError, TypeError, InvalidToken) as exc:
+		if isinstance(exc, InvalidToken):
+			return jsonify({"status": 401, "message": "Unauthorized."}), 401
+		else:
+			return jsonify({"status": 400, "message": "Malformed user ID."}), 400
+		
+	gen = Uuid.uuid4()	
+	uuid_store[gen] = data
 
-	return jsonify({"status": 200, "token": token}), 200
+	return jsonify({"status": 200, "uuid": gen}), 200
 
 @socketio.on("connect")
 def handle_connect(auth):
-	token = auth.get("token")
-	if not token:
+	uuid = auth.get("uuid")
+	if not uuid:
 		return False
 
-	try:
-		data = jwt.decode(token, token_secret, algorithms=["HS256"])
-		user_sessions[data["user_id"]] = request.sid
-		print("User connected:", data["user_id"])
+	if uuid not in uuid_store:
+		return False
 
-		emit("connected", {"user_id": data["user_id"]}, to=request.sid)
-	except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-		return False 
+	user_sessions[uuid] = request.sid # type: ignore
 
 @socketio.on("disconnect")
 def handle_disconnect():
     for user_id, sid in list(user_sessions.items()):
-        if sid == request.sid:
+        if sid == request.sid: # type: ignore
             del user_sessions[user_id]
             print(f"User {user_id} disconnected")
             break
 
 @app.route("/callback", methods=["GET"])
 def callback():
-	if not (code := request.args.get("code")) or not (state := request.args.get("state")):
+	if not (code := request.args.get("code")) or not (uuid := request.args.get("state")):
 		return jsonify({"status": 400, "message": "Code or state not present."}), 400
 
-	try:
-		data = jwt.decode(state, token_secret, algorithms=["HS256"])
-	except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-		return jsonify({"status": 400, "message": "Malformed state. Please re-authenticate."}), 400 
-
-	sid = user_sessions.get(data["user_id"])
+	sid = user_sessions.get(uuid)
 	if not sid:
 		return jsonify({"status": 404, "message": "Session not found."}), 404 
 
-	emit("callback", {"code": code, "user_id": data["user_id"]}, to=sid, namespace="/")
-	return render_template("authorized.html")
+	data = uuid_store.get(uuid)
+	if not data:
+		return jsonify({"status": 404, "message": "Malformed data."}), 404 
+
+	emit("callback", {"code": code, "user_id": data.user_id}, to=sid, namespace="/")
+	session["data"] = data
+	return redirect(url_for("/authorized"))
+
 @app.route("/authorized", methods=["GET"])
 def authorized():
 	data = session.pop("data")
