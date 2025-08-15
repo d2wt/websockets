@@ -74,7 +74,7 @@ def handle_connect(auth):
 	if not auth or not isinstance(auth, dict):
 		return False
 
-	uuid = auth.get("token")
+	uuid = auth.get("uuid")
 	if not uuid or (uuid and uuid not in uuid_store):
 		return False
 
