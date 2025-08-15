@@ -100,6 +100,19 @@ def callback():
 
 	emit("callback", {"code": code, "user_id": data["user_id"]}, to=sid, namespace="/")
 	return render_template("authorized.html")
+@app.route("/authorized", methods=["GET"])
+def authorized():
+	data = session.pop("data")
+	if not data:
+		return jsonify({"status": 401, "message": "Unauthorized."}), 401
+
+	return render_template(
+		"authorized.html",
+		host_name=data.host_name,
+		user_name=data.user_name,
+		user_avatar_url=data.user_avatar_url,
+		host_icon_url=data.host_icon_url
+	)
 
 if __name__ == "__main__":
 	socketio.run(app)
