@@ -10,7 +10,7 @@ import cachetools
 load_dotenv()
 
 app = Flask(__name__)
-socketio = SocketIO(app, path="/ws", async_mode="eventlet", cors_allowed_origins="*")
+socketio = SocketIO(app, path="ws", async_mode="eventlet", cors_allowed_origins="*")
 uuid_store = cachetools.TTLCache(maxsize=128, ttl=30 * 60)
 user_sessions = {}
 
