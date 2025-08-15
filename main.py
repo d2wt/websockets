@@ -107,9 +107,12 @@ def callback():
 
 @app.route("/authorized", methods=["GET"])
 def authorized():
+	if "data" not in session:
+		return jsonify({"status": 401, "message": "Unauthorized."}), 401
+
 	data = session.pop("data")
 	if not data:
-		return jsonify({"status": 401, "message": "Unauthorized."}), 401
+		return jsonify({"status": 404, "message": "Session data not found."}), 404
 
 	return render_template(
 		"authorized.html",
