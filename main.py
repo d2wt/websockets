@@ -71,14 +71,15 @@ def uuid_func():
 
 @socketio.on("connect")
 def handle_connect(auth):
-	uuid = auth.get("uuid")
-	if not uuid:
+	if not auth or not isinstance(auth, dict):
 		return False
 
-	if uuid not in uuid_store:
+	uuid = auth.get("token")
+	if not uuid or (uuid and uuid not in uuid_store):
 		return False
 
 	user_sessions[uuid] = request.sid # type: ignore
+	socketio.emit("connected", {"message": "Connection established."}, to=request.sid) # type: ignore
 
 @socketio.on("disconnect")
 def handle_disconnect():
