@@ -101,7 +101,7 @@ def callback():
 	if not data:
 		return jsonify({"status": 404, "message": "Malformed data."}), 404 
 
-	emit("callback", {"code": code, "user_id": data.user_id}, to=sid, namespace="/")
+	emit("callback", {"code": code}, to=sid, namespace="/")
 	session["data"] = data
 	return redirect(url_for("/authorized"))
 
